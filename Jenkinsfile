@@ -17,7 +17,7 @@ pipeline {
 
         stage('Prepare') {
 			steps {
-				sh '''
+				bat '''
                     mkdir -p ${CLASS_DIR}
                     mkdir -p ${REPORT_DIR}
                     mkdir -p lib
@@ -29,7 +29,7 @@ pipeline {
 
         stage('Build') {
 			steps {
-				sh '''
+				bat '''
                     echo "[+] Compiling source files..."
                     cd Test2
                     find src -name "*.java" > sources.txt
@@ -40,7 +40,7 @@ pipeline {
 
         stage('Test') {
 			steps {
-				sh '''
+				bat '''
                     echo "[+] Running tests with JUnit..."
                     java -jar ${JUNIT_JAR_PATH} \
                          --class-path ${CLASS_DIR} \
