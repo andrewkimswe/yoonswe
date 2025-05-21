@@ -2,62 +2,41 @@ pipeline {
     agent any
 
     environment {
-        JUNIT_JAR_URL = 'https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/1.7.1/junit-platform-console-standalone-1.7.1.jar'
-        JUNIT_JAR_PATH = 'lib/junit.jar'
-        CLASS_DIR = 'classes'
-        REPORT_DIR = 'test-reports'
+        GRADLEW_PATH = './gradlew'
+        BUILD_DIR = 'build'
+        REPORT_DIR = "${BUILD_DIR}/test-results/test"
+        ARTIFACTS_DIR = "${BUILD_DIR}/libs"
+    }
+
+    options {
+        skipStagesAfterUnstable()
+        timestamps()
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Source') {
             steps {
+                echo "[Stage] Checking out source code..."
                 checkout scm
             }
         }
 
-        stage('Prepare') {
+        stage('Setup Environment') {
             steps {
+                echo "[Stage] Preparing build environment..."
                 sh '''
-                    mkdir -p ${CLASS_DIR}
-                    mkdir -p ${REPORT_DIR}
-                    mkdir -p lib
-                    echo "[+] Downloading JUnit JAR..."
-                    curl -L -o ${JUNIT_JAR_PATH} ${JUNIT_JAR_URL}
+                    echo "[Info] Setting executable permission on gradlew"
+                    chmod +x ${GRADLEW_PATH}
                 '''
             }
         }
 
-        stage('Build') {
+        stage('Build and Run Tests') {
             steps {
+                echo "[Stage] Executing build and test tasks..."
                 sh '''
-                    echo "[+] Compiling source files..."
-                    if [ -d "Test2" ]; then
-                        echo "[+] Found Test2 folder. Compiling from Test2/src..."
-                        cd Test2
-                        find src -name "*.java" > sources.txt
-                        javac -encoding UTF-8 -d ../${CLASS_DIR} -cp ../${JUNIT_JAR_PATH} @sources.txt
-                    else
-                        echo "[+] No Test2 folder. Compiling from root src..."
-                        find src -name "*.java" > sources.txt
-                        javac -encoding UTF-8 -d ${CLASS_DIR} -cp ${JUNIT_JAR_PATH} @sources.txt
-                    fi
-                '''
-            }
-        }
-
-        stage('Test') {
-            steps {
-                sh '''
-                    echo "[+] Running tests with JUnit..."
-                    java -jar ${JUNIT_JAR_PATH} \
-                         --class-path ${CLASS_DIR} \
-                         --scan-class-path \
-                         --details=tree \
-                         --details-theme=ascii \
-                         --reports-dir ${REPORT_DIR} \
-                         --config=junit.platform.output.capture.stdout=true \
-                         --config=junit.platform.reporting.open.xml.enabled=true \
-                         > ${REPORT_DIR}/test-output.txt
+                    echo "[Info] Cleaning and building project"
+                    ${GRADLEW_PATH} clean build --no-daemon --console=plain
                 '''
             }
         }
@@ -65,17 +44,26 @@ pipeline {
 
     post {
         always {
-            echo "[*] Archiving test results..."
-            junit "${REPORT_DIR}/**/*.xml"
-            archiveArtifacts artifacts: "${REPORT_DIR}/**/*", allowEmptyArchive: true
-        }
-
-        failure {
-            echo "❌ Build or test failed!"
+            echo "[Post] Archiving artifacts and test results..."
+            junit "${REPORT_DIR}/TEST-*.xml"
+            archiveArtifacts artifacts: "${ARTIFACTS_DIR}/*.jar", allowEmptyArchive: true
+            archiveArtifacts artifacts: "${REPORT_DIR}/**", allowEmptyArchive: true
         }
 
         success {
-            echo "✅ Build and test succeeded!"
+            echo "[Success] ✅ All stages completed successfully."
+        }
+
+        unstable {
+            echo "[Unstable] ⚠️ Tests passed but some conditions marked build unstable."
+        }
+
+        failure {
+            echo "[Failure] ❌ Build or tests failed."
+        }
+
+        cleanup {
+            echo "[Cleanup] 🧹 Cleaning up temporary resources if needed..."
         }
     }
 }
