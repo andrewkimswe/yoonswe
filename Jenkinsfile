@@ -52,6 +52,9 @@ pipeline {
 
         success {
             echo "[Success] ✅ All stages completed successfully."
+            emailext body: '빌드 작업이 모두 정상적으로 완료되었습니다.',
+                     subject: '빌드 성공',
+                     to: 'chosw1002@naver.com'
         }
 
         unstable {
